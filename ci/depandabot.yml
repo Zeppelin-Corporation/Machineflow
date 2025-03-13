@@ -1,0 +1,134 @@
+# .github/dependabot.yml - Enhanced Dependabot Configuration for Machineflow
+# ===========================================================================
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ===========================================================================
+# Description: A powerful Dependabot configuration for Machineflow, an 
+#              open-source ML library on GitHub. Manages dependencies across 
+#              multiple ecosystems with frequent updates, security focus, 
+#              and advanced automation.
+# Created: March 13, 2025
+# Library: Machineflow (github.com/yourusername/machineflow)
+# Version: 1.0.0
+# Documentation: https://github.com/yourusername/machineflow#readme
+# ===========================================================================
+
+version: 2  # Dependabot configuration version
+
+updates:
+  # Python package updates (pip: requirements.txt, pyproject.toml, etc.)
+  - package-ecosystem: "pip"
+    directory: "/"  # Root directory for Python dependencies
+    schedule:
+      interval: "daily"  # Aggressive daily checks for freshness
+      time: "06:00"      # 6:00 AM UTC
+    open-pull-requests-limit: 20  # Allow up to 20 PRs for rapid updates
+    target-branch: "main"         # Target the main branch
+    versioning-strategy: "lockfile-only"  # Use lockfiles (e.g., Poetry, Pipenv)
+    assignees:
+      - "tilakrayal"     # Core team
+      - "Venkat6871"
+    reviewers:
+      - "joker-eph"      # Compiler team
+      - "sanjoy"
+    labels:
+      - "dependencies"
+      - "python"
+      - "security"       # Highlight security updates
+    commit-message:
+      prefix: "deps(python)"  # Scoped prefix
+      prefix-development: "deps(dev)"  # For dev dependencies
+      include: "scope"        # Include scope in message
+    allow:
+      - dependency-type: "direct"      # Update direct dependencies
+      - dependency-type: "production"  # Focus on production deps
+    ignore:
+      - dependency-name: "tensorflow"  # Example: pin TF if needed
+        versions: ["2.x"]              # Avoid breaking changes
+
+  # GitHub Actions updates (for .github/workflows/)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"  # Weekly checks for Actions
+      day: "wednesday"    # Midweek updates
+      time: "12:00"       # Noon UTC
+    open-pull-requests-limit: 5
+    assignees:
+      - "mihaimaruseac"  # Filesystem/security assignee
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "deps(actions)"
+
+  # Docker updates (e.g., for containerized Machineflow builds)
+  - package-ecosystem: "docker"
+    directory: "/docker"  # Assumes a docker/ folder with Dockerfile
+    schedule:
+      interval: "daily"  # Daily Docker base image updates
+      time: "08:00"      # 8:00 AM UTC
+    open-pull-requests-limit: 10
+    assignees:
+      - "tilakrayal"
+      - "Venkat6871"
+    reviewers:
+      - "joker-eph"
+      - "sanjoy"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "security"
+    commit-message:
+      prefix: "deps(docker)"
+      include: "scope"
+
+  # npm updates (e.g., for CLI tools or frontend utilities in Machineflow)
+  - package-ecosystem: "npm"
+    directory: "/tools"  # Assumes a tools/ folder with package.json
+    schedule:
+      interval: "weekly"  # Weekly npm checks
+      day: "friday"       # End-of-week updates
+      time: "15:00"       # 3:00 PM UTC
+    open-pull-requests-limit: 5
+    assignees:
+      - "mihaimaruseac"
+    labels:
+      - "dependencies"
+      - "npm"
+    commit-message:
+      prefix: "deps(npm)"
+      include: "scope"
+    allow:
+      - dependency-type: "direct"
+
+# Custom PR Notes (for manual or bot-enhanced use)
+notes:
+  cuda_pr_comment: >
+    This PR updates dependencies that may impact CUDA support in Machineflow:
+      - Verify CUDA compatibility (e.g., 11.8 for v1.0.0).
+      - **Windows**: Add CUDA/cuDNN to `%PATH%`. See [guide](https://github.com/yourusername/machineflow/blob/main/docs/gpu_setup.md#windows).
+      - **Linux**: Add CUDA/cuDNN to `$LD_LIBRARY_PATH`. See [guide](https://github.com/yourusername/machineflow/blob/main/docs/gpu_setup.md#linux).
+      - Test with `python -m machineflow.test.gpu` post-merge.
+    *Report any issues in the PR!*
+
+  windows_pr_comment: >
+    This PR may affect Windows setups due to path length limits:
+      - Disable the 260-character limit if errors occur.
+      - See [Windows path guide](https://mspoweruser.com/ntfs-260-character-windows-10/).
+    *Test on Windows and confirm success!*
+
+  security_pr_comment: >
+    This PR includes security-related dependency updates:
+      - Review changes carefully for vulnerabilities.
+      - Test with `python -m machineflow.test.security` after merging.
+    *Ensure all tests pass before approval!*
