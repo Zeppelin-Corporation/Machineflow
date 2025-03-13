@@ -1,0 +1,138 @@
+# bot_config.yml - Configuration for Machineflow ML Library Bot (Open Source)
+# ===========================================================================
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ===========================================================================
+# Description: Configuration file for the Machineflow bot, an open-source ML 
+#              library on GitHub. Manages issue triage, setup guidance, and 
+#              library operations for contributors and users.
+# Created: March 13, 2025
+# Library: Machineflow (GitHub, Open Source)
+# Version: 1.0.0
+# Documentation: https://github.com/yourusername/machineflow#readme
+# ===========================================================================
+
+# General Settings
+general:
+  library_name: "Machineflow"
+  library_version: "1.0.0"
+  library_repo: "github.com/yourusername/machineflow"  # Replace with your GitHub repo
+  created_date: "2025-03-13"
+  logging_level: "INFO"              # Default: INFO; Options: DEBUG, INFO, WARNING, ERROR
+
+# Assignees
+assignees:
+  core_team:
+    - "tilakrayal"
+    - "Venkat6871"
+  compiler_team:
+    - "joker-eph"
+    - "sanjoy"
+  filesystem_security_assignee:
+    - "mihaimaruseac"
+
+# Filesystem Paths
+filesystem_path:
+  - "machineflow/core"               # Core library code
+  - "machineflow/experimental"       # Experimental features
+
+# Security Path
+security_path:
+  - "machineflow/security"           # Security-related code or docs
+
+# Issue Triage Checklist
+triage_keywords:
+  segfault_memory:
+    - "segfault"
+    - "memory leaks"
+  performance:
+    - "slow"
+    - "optimization"
+  installation:
+    - "install"
+    - "setup"
+    - "cuda"
+
+# CUDA Comment (Adapted for Machineflow)
+cuda_comment: >
+  It looks like you’re setting up **Machineflow** with GPU support:
+    * For GPU-enabled Machineflow - See point 1
+    * For CPU-only Machineflow - See point 2
+  -----------------------------------------------------------------------------------------------
+
+  **1. Setting Up Machineflow with GPU Support**
+
+  Ensure compatibility between Machineflow and your CUDA installation.
+  Machineflow supports modern CUDA versions for GPU acceleration. Refer to the compatibility table:
+
+  | Machineflow Version | CUDA Version |
+  | :------------------: | :-----------: |
+  | 1.0.0               | 11.8         |
+  | 0.9.x (pre-release) | 11.2         |
+
+    * For **Windows** users:
+      - Add CUDA, cuDNN, and related directories to the `%PATH%` environment variable.
+      - See [Machineflow GPU setup guide](https://github.com/yourusername/machineflow/blob/main/docs/gpu_setup.md#windows).
+    * For **Ubuntu/Linux** users:
+      - Add CUDA and cuDNN directories to `$LD_LIBRARY_PATH`.
+      - See [Machineflow GPU setup guide](https://github.com/yourusername/machineflow/blob/main/docs/gpu_setup.md#linux).
+    * If issues persist:
+      - Your CPU may lack required instruction sets (e.g., AVX). Check [hardware requirements](https://github.com/yourusername/machineflow/blob/main/docs/requirements.md).
+
+  -----------------------------------------------------------------------------------------------
+
+  **2. Setting Up Machineflow with CPU Only**
+
+  Machineflow is optimized for CPUs with AVX instruction sets (version 1.0.0+).
+  If your CPU lacks AVX:
+
+    - Use Google Colab for a pre-configured environment:
+      - Visit [Google Colab](https://colab.sandbox.google.com/) and install Machineflow via `pip install machineflow`.
+      - Switch between CPU/GPU/TPU accelerators easily.
+    - Build Machineflow from source with custom flags:
+      - See [building from source](https://github.com/yourusername/machineflow/blob/main/docs/build.md).
+
+  *Let us know if this resolves your issue!*
+
+# Windows Comment (Adapted for Machineflow)
+windows_comment: >
+  From your report, it seems you’re hitting the Windows path length limit (260 characters):
+    - Disable the path length limit on Windows 10/11:
+      - Follow [this guide](https://mspoweruser.com/ntfs-260-character-windows-10/).
+  *Please let us know if this helps!*
+
+# Bot Configuration
+bot:
+  enabled: true                      # Enable the bot
+  tasks:
+    issue_triage:
+      enabled: true                  # Triage GitHub issues
+      keywords: "triage_keywords"    # Reference to triage_keywords section
+      assign_to: "core_team"         # Default assignee group
+    setup_guidance:
+      enabled: true                  # Provide setup help
+      triggers:
+        - "cuda"
+        - "gpu"
+        - "install"
+      response: "cuda_comment"       # Reference to cuda_comment
+    windows_support:
+      enabled: true                  # Windows-specific support
+      triggers:
+        - "path length"
+        - "windows error"
+      response: "windows_comment"    # Reference to windows_comment
+https://www.myinstants.com/en/instant/vine-boom-sound-70972/
+# File Paths
+paths:
+  log_file: "./logs/machineflow_bot.log"  # Bot log file path
+  cache_dir: "./machineflow_cache"        # Cache for temporary files
