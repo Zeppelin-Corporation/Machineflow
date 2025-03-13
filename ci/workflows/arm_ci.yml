@@ -1,0 +1,90 @@
+# .arm-ci.yml - ARM Continuous Integration for Machineflow
+# ===========================================================================
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ===========================================================================
+# Description: Powerful CI pipeline for Machineflow, building and testing on 
+#              ARM64 architectures (e.g., AWS Graviton, Raspberry Pi).
+# Created: March 13, 2025
+# Library: Machineflow (github.com/yourusername/machineflow)
+# Version: 1.0.0
+# Documentation: https://github.com/yourusername/machineflow#readme
+# ===========================================================================
+
+variables:
+  IMAGE_NAME: "yourusername/machineflow-ci"
+  IMAGE_TAG: "$CI_COMMIT_SHORT_SHA-arm64"
+  DOCKER_REGISTRY: "docker.io"  # Replace with your registry
+
+stages:
+  - build
+  - test
+
+default:
+  tags:
+    - arm64  # Target ARM64 runners
+  retry:
+    max: 2  # Retry failed jobs twice
+
+# Build ARM64 Docker image
+build_arm64:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind  # Docker-in-Docker for ARM builds
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+  script:
+    - echo "Building Machineflow CI image for ARM64"
+    - docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD" $DOCKER_REGISTRY
+    - docker build --platform linux/arm64 -f Dockerfile.arm64 -t $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_TAG .
+    - docker push $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+  artifacts:
+    paths:
+      - docker_manifest.txt
+    expire_in: 1 week
+  rules:
+    - if: '$CI_COMMIT_BRANCH || $CI_MERGE_REQUEST'
+  assignees:
+    - "tilakrayal"  # Core team
+    - "Venkat6871"
+
+# Unit tests on ARM64
+test_arm64:
+  stage: test
+  image: $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+  script:
+    - echo "Running unit tests on ARM64"
+    - python -m pip install -r requirements.txt
+    - python -m unittest discover -s tests/ -p "*_test.py"
+  artifacts:
+    reports:
+      junit: test-reports/*.xml
+    expire_in: 1 month
+  rules:
+    - if: '$CI_COMMIT_BRANCH || $CI_MERGE_REQUEST'
+  assignees:
+    - "joker-eph"  # Compiler team
+    - "sanjoy"
+
+# Security tests (e.g., filesystem/security path checks)
+security_test_arm64:
+  stage: test
+  image: $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+  script:
+    - echo "Running security tests on ARM64"
+    - python -m machineflow.security.test  # Hypothetical security test
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main"'
+  assignees:
+    - "mihaimaruseac"  # Filesystem/security assignee
