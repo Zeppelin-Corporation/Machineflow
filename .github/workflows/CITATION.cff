@@ -1,0 +1,13 @@
+# CITATION.cff
+cff-version: 1.2.0
+message: "Cite Machineflow as below."
+authors:
+  - family-names: "Rayal"
+    given-names: "Tilak"
+  - family-names: "Venkat"
+    given-names: "Venkat6871"
+title: "Machineflow: An Open-Source Machine Learning Library"
+version: 1.0.0
+date-released: 2025-03-13
+url: "https://github.com/yourusername/machineflow"
+license: "Apache-2.0"
