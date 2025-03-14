@@ -1,4 +1,4 @@
-# .github/workflows/cffconvert.yml - Enhanced CFF Conversion Workflow for Machineflow
+# .github/workflows/cffconvert.yml - CFF Conversion Workflow for Machineflow (No ORCID)
 # ===========================================================================
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===========================================================================
-# Description: Powerful GitHub Actions workflow to validate, convert, and 
-#              maintain Machineflow's CITATION.cff on ARM64 and x86 runners, 
-#              with auto-PR updates and strict validation.
+# Description: GitHub Actions workflow to validate and convert Machineflow's 
+#              CITATION.cff file without ORCID IDs, ensuring citation metadata 
+#              is maintained for this open-source ML library.
 # Created: March 13, 2025
 # Library: Machineflow (github.com/yourusername/machineflow)
 # Version: 1.0.0
@@ -41,68 +41,57 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, ubuntu-latest-arm64]  # Multi-arch: x86_64 and ARM64
-      fail-fast: false  # Continue even if one runner fails
+        os: [ubuntu-latest, ubuntu-latest-arm64]  # Multi-arch support
+      fail-fast: false
     steps:
-      # Checkout repository
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Full history for version checks
+          fetch-depth: 0
 
-      # Set up Python
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
-          cache-dependency-path: 'requirements.txt'  # If applicable
 
-      # Install dependencies
       - name: Install cffconvert and tools
         run: |
           pip install cffconvert yamllint
           cffconvert --version
 
-      # Lint CITATION.cff (extra validation)
       - name: Lint CITATION.cff
         run: |
           echo "Linting CITATION.cff for YAML compliance"
           yamllint -d "{extends: relaxed, rules: {line-length: disable}}" CITATION.cff
 
-      # Validate CITATION.cff
       - name: Validate CITATION.cff
         run: |
           echo "Validating CITATION.cff on ${{ matrix.os }}"
           cffconvert --validate --verbose
-        continue-on-error: false
 
-      # Convert to BibTeX
       - name: Convert to BibTeX
         run: |
           echo "Converting to BibTeX"
           cffconvert --format bibtex --output CITATION.bib
           cat CITATION.bib
 
-      # Convert to RIS
       - name: Convert to RIS
         run: |
           echo "Converting to RIS"
           cffconvert --format ris --output CITATION.ris
           cat CITATION.ris
 
-      # Check version consistency
       - name: Verify version consistency
         run: |
           echo "Checking version consistency with repository"
           CFF_VERSION=$(grep '^version:' CITATION.cff | awk '{print $2}')
-          REPO_VERSION="1.0.0"  # Replace with dynamic check if possible
+          REPO_VERSION="1.0.0"  # Static; replace with dynamic check if needed
           if [ "$CFF_VERSION" != "$REPO_VERSION" ]; then
             echo "Error: CITATION.cff version ($CFF_VERSION) does not match repo version ($REPO_VERSION)"
             exit 1
           fi
 
-      # Upload artifacts
       - name: Upload citation files
         uses: actions/upload-artifact@v4
         with:
@@ -112,7 +101,6 @@ jobs:
             CITATION.ris
           retention-days: 60
 
-      # Auto-update PR with converted files
       - name: Create or update PR with citation files
         if: github.event_name != 'pull_request' && matrix.os == 'ubuntu-latest'
         run: |
@@ -141,6 +129,6 @@ jobs:
           echo "CFF validation or conversion failed. Assigned to: tilakrayal, Venkat6871"
           echo "Security contact: mihaimaruseac"
           gh issue comment ${{ github.event.number || github.sha }} \
-            --body "CFF workflow failed. Please check logs. Assigned to @tilakrayal, @Venkat6871. Security: @mihaimaruseac"
+            --body "CFF workflow failed. Check logs. Assigned to @tilakrayal, @Venkat6871. Security: @mihaimaruseac"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
