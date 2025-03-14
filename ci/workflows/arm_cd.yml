@@ -1,0 +1,68 @@
+# .arm-cd.yml - ARM Continuous Deployment for Machineflow
+# ===========================================================================
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ===========================================================================
+# Description: Powerful CD pipeline for Machineflow, deploying ARM64 builds 
+#              to production (e.g., AWS Graviton2 ECS cluster).
+# Created: March 13, 2025
+# Library: Machineflow (github.com/yourusername/machineflow)
+# Version: 1.0.0
+# Documentation: https://github.com/yourusername/machineflow#readme
+# ===========================================================================
+
+variables:
+  IMAGE_NAME: "yourusername/machineflow-ci"  # Same as CI image
+  IMAGE_TAG: "$CI_COMMIT_SHORT_SHA-arm64"
+  DOCKER_REGISTRY: "docker.io"
+  ECS_CLUSTER: "machineflow-arm-cluster"
+  ECS_SERVICE: "machineflow-arm-service"
+
+stages:
+  - deploy
+
+default:
+  tags:
+    - arm64  # Target ARM64 runners
+  retry:
+    max: 1  # Single retry for deployment
+
+# Deploy to ARM64 production environment
+deploy_arm64:
+  stage: deploy
+  image: python:3.11-slim
+  before_script:
+    - pip install awscli
+    - aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID"
+    - aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY"
+    - aws configure set region "us-west-2"  # Adjust region as needed
+  script:
+    - echo "Deploying Machineflow to ARM64 AWS Graviton2 ECS"
+    - aws ecs update-service --cluster $ECS_CLUSTER --service $ECS_SERVICE --force-new-deployment
+    - echo "Verifying deployment"
+    - aws ecs wait services-stable --cluster $ECS_CLUSTER --services $ECS_SERVICE
+  environment:
+    name: production
+    url: https://machineflow-arm.example.com
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual  # Manual approval for production deploy
+  assignees:
+    - "mihaimaruseac"  # Filesystem/security assignee
+
+# CUDA Comment (for documentation or manual use)
+cuda_comment: >
+  This CD pipeline deploys Machineflow on ARM64 with CUDA support:
+    - Ensure CUDA 11.8 is available in the ECS environment.
+    - Update `$LD_LIBRARY_PATH` with CUDA/cuDNN paths on ARM64 runners.
+    - Test post-deployment with `python -m machineflow.test.gpu`.
+  *Report deployment issues to assignees!*
