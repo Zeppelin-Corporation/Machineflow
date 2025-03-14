@@ -1,0 +1,111 @@
+# .gitlab-ci.yml - ARM CI/CD Configuration for Machineflow
+# ===========================================================================
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ===========================================================================
+# Description: A powerful CI/CD pipeline for Machineflow, an open-source ML 
+#              library on GitHub, optimized for ARM architectures (arm64).
+#              Includes build, test, and deploy stages with ARM-specific runners.
+# Created: March 13, 2025
+# Library: Machineflow (github.com/yourusername/machineflow)
+# Version: 1.0.0
+# Documentation: https://github.com/yourusername/machineflow#readme
+# ===========================================================================
+
+# Global variables
+variables:
+  DOCKER_REGISTRY: "docker.io"  # Replace with your registry if needed
+  IMAGE_NAME: "yourusername/machineflow"
+  IMAGE_TAG: "$CI_COMMIT_SHORT_SHA-arm64"
+
+# Stages
+stages:
+  - build
+  - test
+  - deploy
+
+# Default settings
+default:
+  tags:
+    - arm64  # Target ARM64 runners
+  retry:
+    max: 2  # Retry failed jobs up to 2 times
+
+# Build ARM Docker image
+build_arm_image:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind  # Docker-in-Docker for building images
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""  # Disable TLS for simplicity
+  script:
+    - echo "Building ARM64 Docker image for Machineflow"
+    - docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD" $DOCKER_REGISTRY
+    - docker build --platform linux/arm64 -t $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_TAG .
+    - docker push $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+  artifacts:
+    paths:
+      - docker_manifest.txt
+    expire_in: 1 week
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main"'
+  assignees:
+    - "tilakrayal"
+    - "Venkat6871"
+
+# Test ARM build
+test_arm:
+  stage: test
+  image: $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+  script:
+    - echo "Running tests on ARM64 build"
+    - python -m unittest discover -s tests/ -p "*_test.py"  # Example test command
+    - python -m machineflow.test.gpu  # Hypothetical GPU test
+  artifacts:
+    reports:
+      junit: test-reports/*.xml
+    expire_in: 1 month
+  rules:
+    - if: '$CI_COMMIT_BRANCH || $CI_MERGE_REQUEST'
+  assignees:
+    - "joker-eph"
+    - "sanjoy"
+
+# Deploy to ARM environment (e.g., AWS Graviton2)
+deploy_arm:
+  stage: deploy
+  image: python:3.11-slim
+  before_script:
+    - pip install awscli
+  script:
+    - echo "Deploying Machineflow to ARM-based AWS Graviton2 ECS cluster"
+    - aws ecs update-service --cluster machineflow-cluster --service machineflow-service --force-new-deployment
+  environment:
+    name: production
+    url: https://machineflow.example.com
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual  # Manual trigger for deployment
+  assignees:
+    - "mihaimaruseac"
+
+# CUDA Comment (for documentation or manual use)
+cuda_comment: >
+  This pipeline builds and tests Machineflow on ARM64 with CUDA support:
+    - Ensure CUDA 11.8 compatibility for ARM64 builds.
+    - For Linux runners:
+      - Add CUDA/cuDNN to `$LD_LIBRARY_PATH`.
+      - See [setup guide](https://github.com/yourusername/machineflow/blob/main/docs/gpu_setup.md#linux).
+    - Test with `python -m machineflow.test.gpu` after deployment.
+  *Report issues to assignees!*
