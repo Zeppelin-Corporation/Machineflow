@@ -1,26 +1,4 @@
-# .github/workflows/cffconvert.yml - CFF Conversion Workflow for Machineflow (No ORCID)
-# ===========================================================================
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ===========================================================================
-# Description: GitHub Actions workflow to validate and convert Machineflow's 
-#              CITATION.cff file without ORCID IDs, ensuring citation metadata 
-#              is maintained for this open-source ML library.
-# Created: March 13, 2025
-# Library: Machineflow (github.com/yourusername/machineflow)
-# Version: 1.0.0
-# Documentation: https://github.com/yourusername/machineflow#readme
-# ===========================================================================
-
+# .github/workflows/cffconvert.yml
 name: CFF Conversion and Validation
 
 on:
@@ -29,106 +7,37 @@ on:
       - main
     paths:
       - 'CITATION.cff'
-      - '.github/workflows/cffconvert.yml'
   pull_request:
     paths:
       - 'CITATION.cff'
-  schedule:
-    - cron: '0 0 * * 1'  # Weekly on Mondays at midnight UTC
 
 jobs:
   validate-and-convert:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, ubuntu-latest-arm64]  # Multi-arch support
-      fail-fast: false
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Set up Python 3.11
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
 
-      - name: Install cffconvert and tools
+      - name: Install tools
         run: |
-          pip install cffconvert yamllint
+          pip install cffconvert
           cffconvert --version
-
-      - name: Lint CITATION.cff
-        run: |
-          echo "Linting CITATION.cff for YAML compliance"
-          yamllint -d "{extends: relaxed, rules: {line-length: disable}}" CITATION.cff
 
       - name: Validate CITATION.cff
         run: |
-          echo "Validating CITATION.cff on ${{ matrix.os }}"
-          cffconvert --validate --verbose
+          cffconvert --validate
 
       - name: Convert to BibTeX
         run: |
-          echo "Converting to BibTeX"
           cffconvert --format bibtex --output CITATION.bib
-          cat CITATION.bib
 
-      - name: Convert to RIS
-        run: |
-          echo "Converting to RIS"
-          cffconvert --format ris --output CITATION.ris
-          cat CITATION.ris
-
-      - name: Verify version consistency
-        run: |
-          echo "Checking version consistency with repository"
-          CFF_VERSION=$(grep '^version:' CITATION.cff | awk '{print $2}')
-          REPO_VERSION="1.0.0"  # Static; replace with dynamic check if needed
-          if [ "$CFF_VERSION" != "$REPO_VERSION" ]; then
-            echo "Error: CITATION.cff version ($CFF_VERSION) does not match repo version ($REPO_VERSION)"
-            exit 1
-          fi
-
-      - name: Upload citation files
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: citation-files-${{ matrix.os }}
-          path: |
-            CITATION.bib
-            CITATION.ris
-          retention-days: 60
-
-      - name: Create or update PR with citation files
-        if: github.event_name != 'pull_request' && matrix.os == 'ubuntu-latest'
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -b update-citation-files-${{ github.sha }}
-          git add CITATION.bib CITATION.ris
-          git commit -m "Update citation files from CITATION.cff" || echo "No changes to commit"
-          git push origin update-citation-files-${{ github.sha }} --force
-          gh pr create --title "Update citation files" \
-                       --body "Auto-generated PR to update CITATION.bib and CITATION.ris" \
-                       --base main \
-                       --assignee "tilakrayal,Venkat6871" \
-                       --reviewer "joker-eph,sanjoy" \
-                       --label "citation,automation" || echo "PR already exists"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  notify-on-failure:
-    runs-on: ubuntu-latest
-    needs: validate-and-convert
-    if: failure()
-    steps:
-      - name: Notify failure
-        run: |
-          echo "CFF validation or conversion failed. Assigned to: tilakrayal, Venkat6871"
-          echo "Security contact: mihaimaruseac"
-          gh issue comment ${{ github.event.number || github.sha }} \
-            --body "CFF workflow failed. Check logs. Assigned to @tilakrayal, @Venkat6871. Security: @mihaimaruseac"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: citation-files
+          path: CITATION.bib
