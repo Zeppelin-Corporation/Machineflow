@@ -1,0 +1,32 @@
+name: OSV Vulnerability Scanner
+on:
+  schedule:
+    - cron: "0 0 * * 1" # Every Monday
+  workflow_dispatch: # Manual trigger
+env:
+  OSV_VERSION: "v1.6.0"
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install OSV-Scanner
+        run: |
+          curl -sSL https://github.com/google/osv-scanner/releases/download/${{ env.OSV_VERSION }}/osv-scanner-linux-amd64 -o osv-scanner
+          chmod +x osv-scanner
+      - name: Scan Dependencies
+        id: scan
+        run: |
+          ./osv-scanner -r requirements.txt > osv-report.txt || echo "VULNERABILITIES_FOUND=true" >> $GITHUB_ENV
+      - name: Upload Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: osv-report
+          path: osv-report.txt
+      - name: Notify on Vulnerabilities
+        if: env.VULNERABILITIES_FOUND == 'true'
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN }}
+          channel-id: "security"
+          text: "Vulnerabilities found in Machineflow dependencies! Check the OSV report."
