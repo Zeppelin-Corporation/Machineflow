@@ -1,0 +1,28 @@
+name: Pylint Presubmit
+on:
+  pull_request:
+    paths:
+      - "**.py"
+env:
+  PYTHON_VERSION: "3.9"
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-file: ${{ github.event.pull_request.files }} # Hypothetical; dynamically lint changed files
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install Linting Tools
+        run: |
+          pip install pylint pylint-exit
+      - name: Run Pylint with Custom Config
+        run: |
+          pylint --rcfile=.pylintrc --score=n $(git diff --name-only origin/main | grep '\.py$') || pylint-exit $?
+      - name: Check ML Docstrings
+        run: |
+          python scripts/check_ml_docstrings.py # Custom script for ML-specific linting
