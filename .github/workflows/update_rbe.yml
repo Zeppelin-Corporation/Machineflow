@@ -1,26 +1,54 @@
-name: Update RBE
+name: Update RBE for Machineflow
 on:
   push:
     branches:
       - main
+  workflow_dispatch:
 env:
-  BAZEL_VERSION: "6.4.0"
+  BAZEL_VERSION: "7.0.0"
 jobs:
-  rbe:
+  rbe-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install Bazel
+        with:
+          fetch-depth: 0
+      - name: Install Bazelisk
         run: |
-          curl -sSL https://github.com/bazelbuild/bazel/releases/download/${{ env.BAZEL_VERSION }}/bazel-${{ env.BAZEL_VERSION }}-installer-linux-x86_64.sh -o bazel-installer.sh
-          chmod +x bazel-installer.sh && ./bazel-installer.sh
-      - name: Cache Bazel
+          curl -sSL https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64 -o /usr/local/bin/bazel
+          chmod +x /usr/local/bin/bazel
+          bazel version
+      - name: Cache Bazel Outputs
         uses: actions/cache@v3
         with:
-          path: ~/.cache/bazel
-          key: ${{ runner.os }}-bazel-${{ hashFiles('WORKSPACE', '.bazelrc') }}
-      - name: Build with RBE
+          path: |
+            ~/.cache/bazel
+            ~/.bazel
+          key: ${{ runner.os }}-bazel-${{ hashFiles('WORKSPACE', 'BUILD', '.bazelrc', '**/*.bzl') }}
+          restore-keys: ${{ runner.os }}-bazel-
+      - name: Configure RBE Credentials
         run: |
-          bazel build //machineflow/... --config=rbe --remote_executor=grpc://remotebuildexecution.googleapis.com
+          echo "${{ secrets.BAZEL_RBE_CREDENTIALS }}" > ~/.bazelrc.user
+          echo "build --config=rbe" >> ~/.bazelrc.user
+          echo "build:rbe --remote_executor=grpc://remotebuildexecution.googleapis.com" >> ~/.bazelrc.user
+          echo "build:rbe --google_credentials=~/.bazelrc.user" >> ~/.bazelrc.user
+      - name: Verify Bazel Setup
+        run: |
+          bazel info --config=rbe || (echo "Bazel setup failed" && exit 1)
+      - name: Build Machineflow with RBE
+        run: |
+          bazel build //machineflow/... --config=rbe --bes_results_url=https://results.bazel.build --bes_timeout=300s
         env:
-          BAZEL_RBE_CREDENTIALS: ${{ secrets.BAZEL_RBE_CREDENTIALS }}
+          GOOGLE_APPLICATION_CREDENTIALS: ~/.bazelrc.user
+      - name: Test Build Outputs
+        if: success()
+        run: |
+          bazel test //machineflow/tests/... --config=rbe
+      - name: Upload Build Logs on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bazel-logs
+          path: |
+            bazel-out/**/build.log
+            ~/.bazelrc.user
