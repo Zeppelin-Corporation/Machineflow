@@ -1,0 +1,26 @@
+name: Update RBE
+on:
+  push:
+    branches:
+      - main
+env:
+  BAZEL_VERSION: "6.4.0"
+jobs:
+  rbe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Bazel
+        run: |
+          curl -sSL https://github.com/bazelbuild/bazel/releases/download/${{ env.BAZEL_VERSION }}/bazel-${{ env.BAZEL_VERSION }}-installer-linux-x86_64.sh -o bazel-installer.sh
+          chmod +x bazel-installer.sh && ./bazel-installer.sh
+      - name: Cache Bazel
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/bazel
+          key: ${{ runner.os }}-bazel-${{ hashFiles('WORKSPACE', '.bazelrc') }}
+      - name: Build with RBE
+        run: |
+          bazel build //machineflow/... --config=rbe --remote_executor=grpc://remotebuildexecution.googleapis.com
+        env:
+          BAZEL_RBE_CREDENTIALS: ${{ secrets.BAZEL_RBE_CREDENTIALS }}
