@@ -5,6 +5,7 @@ on:
       - main
 env:
   RELEASE_BRANCH: "release/v1.0"
+  CHERRY_PICK_BRANCH: "cherry-pick/release-v1.0-$(date +%Y%m%d%H%M%S)"
 jobs:
   cherrypick:
     runs-on: ubuntu-latest
@@ -12,18 +13,41 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Cherry-pick to Release
+          token: ${{ secrets.GITHUB_TOKEN }} # Ensure proper auth
+      - name: Configure Git
         run: |
-          git checkout ${{ env.RELEASE_BRANCH }}
+          git config user.name "GitHub Action"
+          git config user.email "action@github.com"
+      - name: Create Cherry-pick Branch
+        run: |
+          git checkout -b ${{ env.CHERRY_PICK_BRANCH }} ${{ env.RELEASE_BRANCH }}
+      - name: Cherry-pick Latest from Main
+        id: cherrypick
+        run: |
           git cherry-pick main || (git cherry-pick --abort && echo "CONFLICTS_FOUND=true" >> $GITHUB_ENV)
-          git push origin ${{ env.RELEASE_BRANCH }}
+      - name: Push Cherry-pick Branch
+        if: env.CONFLICTS_FOUND != 'true'
+        run: |
+          git push origin ${{ env.CHERRY_PICK_BRANCH }}
+      - name: Create Pull Request
+        if: env.CONFLICTS_FOUND != 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ env.CHERRY_PICK_BRANCH }}
+          base: ${{ env.RELEASE_BRANCH }}
+          title: "Cherry-pick main into ${{ env.RELEASE_BRANCH }}"
+          body: "Automated cherry-pick of latest commits from main. Please review and resolve any conflicts."
+          labels: "cherry-pick, automated"
       - name: Tag Release
         if: env.CONFLICTS_FOUND != 'true'
         run: |
+          git checkout ${{ env.RELEASE_BRANCH }}
+          git pull origin ${{ env.RELEASE_BRANCH }}
           git tag v1.0.$(date +%Y%m%d)
           git push origin --tags
-      - name: Notify on Conflict
-        if: env.CONFLICTS_FOUND == 'true'
+      - name: Notify on Conflict or Failure
+        if: failure() || env.CONFLICTS_FOUND == 'true'
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -31,6 +55,6 @@ jobs:
             github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: "Cherry-pick Conflict on ${{ env.RELEASE_BRANCH }}",
-              body: "Cherry-pick from main failed due to conflicts. Manual resolution required."
+              title: "Cherry-pick Failed on ${{ env.RELEASE_BRANCH }}",
+              body: `Cherry-pick from main to ${{ env.RELEASE_BRANCH }} failed. Conflicts: ${{ env.CONFLICTS_FOUND == 'true' ? 'Yes' : 'No' }}. Check workflow run for details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`
             })
