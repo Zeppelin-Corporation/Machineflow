@@ -6,26 +6,33 @@ on:
   workflow_dispatch:
 env:
   BAZEL_VERSION: "7.0.0"
+  ARTIFACT_BRANCH: "rbe-build-artifacts"
 jobs:
-  rbe-build:
+  rbe-build-and-push:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }} # For pushing later
       - name: Install Bazelisk
         run: |
           curl -sSL https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64 -o /usr/local/bin/bazel
           chmod +x /usr/local/bin/bazel
-          bazel version
+          bazel version || (echo "Bazelisk installation failed" && exit 1)
       - name: Cache Bazel Outputs
         uses: actions/cache@v3
         with:
           path: |
             ~/.cache/bazel
             ~/.bazel
+            bazel-out
           key: ${{ runner.os }}-bazel-${{ hashFiles('WORKSPACE', 'BUILD', '.bazelrc', '**/*.bzl') }}
           restore-keys: ${{ runner.os }}-bazel-
+      - name: Configure Git
+        run: |
+          git config user.name "GitHub Action"
+          git config user.email "action@github.com"
       - name: Configure RBE Credentials
         run: |
           echo "${{ secrets.BAZEL_RBE_CREDENTIALS }}" > ~/.bazelrc.user
@@ -34,16 +41,36 @@ jobs:
           echo "build:rbe --google_credentials=~/.bazelrc.user" >> ~/.bazelrc.user
       - name: Verify Bazel Setup
         run: |
-          bazel info --config=rbe || (echo "Bazel setup failed" && exit 1)
+          bazel info --config=rbe || (echo "Bazel RBE setup failed" && exit 1)
       - name: Build Machineflow with RBE
+        id: build
         run: |
-          bazel build //machineflow/... --config=rbe --bes_results_url=https://results.bazel.build --bes_timeout=300s
+          bazel build //machineflow/... --config=rbe --bes_results_url=https://results.bazel.build --bes_timeout=300s --keep_going
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ~/.bazelrc.user
       - name: Test Build Outputs
         if: success()
         run: |
-          bazel test //machineflow/tests/... --config=rbe
+          bazel test //machineflow/tests/... --config=rbe --test_output=errors
+      - name: Stage Build Artifacts
+        if: success()
+        run: |
+          mkdir -p artifacts
+          cp -r bazel-bin/machineflow/* artifacts/ || echo "No artifacts found"
+      - name: Push Artifacts to Branch
+        if: success()
+        run: |
+          git checkout -b ${{ env.ARTIFACT_BRANCH }} || git checkout ${{ env.ARTIFACT_BRANCH }}
+          cp -r artifacts/* . || echo "No new artifacts to copy"
+          git add .
+          git commit -m "Update RBE build artifacts from main (${{ github.sha }})" || echo "Nothing to commit"
+          git push origin ${{ env.ARTIFACT_BRANCH }} --force
+      - name: Create Release Tag
+        if: success()
+        run: |
+          TAG_NAME="rbe-build-$(date +%Y%m%d-%H%M%S)"
+          git tag $TAG_NAME
+          git push origin $TAG_NAME
       - name: Upload Build Logs on Failure
         if: failure()
         uses: actions/upload-artifact@v4
@@ -52,3 +79,15 @@ jobs:
           path: |
             bazel-out/**/build.log
             ~/.bazelrc.user
+      - name: Notify on Failure
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: "RBE Build Failed on main",
+              body: "RBE build or push failed. Check logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            })
