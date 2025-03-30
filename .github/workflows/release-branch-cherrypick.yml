@@ -1,0 +1,36 @@
+name: Cherry-pick to Release Branch
+on:
+  push:
+    branches:
+      - main
+env:
+  RELEASE_BRANCH: "release/v1.0"
+jobs:
+  cherrypick:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Cherry-pick to Release
+        run: |
+          git checkout ${{ env.RELEASE_BRANCH }}
+          git cherry-pick main || (git cherry-pick --abort && echo "CONFLICTS_FOUND=true" >> $GITHUB_ENV)
+          git push origin ${{ env.RELEASE_BRANCH }}
+      - name: Tag Release
+        if: env.CONFLICTS_FOUND != 'true'
+        run: |
+          git tag v1.0.$(date +%Y%m%d)
+          git push origin --tags
+      - name: Notify on Conflict
+        if: env.CONFLICTS_FOUND == 'true'
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: "Cherry-pick Conflict on ${{ env.RELEASE_BRANCH }}",
+              body: "Cherry-pick from main failed due to conflicts. Manual resolution required."
+            })
