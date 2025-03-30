@@ -1,0 +1,27 @@
+name: Scorecards Analysis
+on:
+  schedule:
+    - cron: "0 0 1 * *" # Monthly
+  workflow_dispatch:
+jobs:
+  analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ossf/scorecard-action@v2
+        with:
+          args: --repo=$GITHUB_REPOSITORY --format=json
+      - name: Check Scorecard Results
+        run: |
+          jq -r '.score' scorecard-results.json > score.txt
+          if (( $(cat score.txt) < 7 )); then echo "LOW_SCORE=true" >> $GITHUB_ENV; fi
+      - name: Upload Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: scorecard-results
+          path: scorecard-results.json
+      - name: Fail on Low Score
+        if: env.LOW_SCORE == 'true'
+        run: |
+          echo "Security score too low (< 7). Review scorecard-results.json."
+          exit 1
